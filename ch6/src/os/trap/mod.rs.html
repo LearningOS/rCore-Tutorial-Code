@@ -145,6 +145,9 @@
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Trap handling functionality
 //!
 //! For rCore, we have a single trap entry point, namely `__alltraps`. At
@@ -182,8 +185,11 @@
 }
 
 <span class="kw">fn </span>set_kernel_trap_entry() {
+    <span class="kw">extern </span><span class="string">"C" </span>{
+        <span class="kw">fn </span>__trap_from_kernel();
+    }
     <span class="kw">unsafe </span>{
-        stvec::write(trap_from_kernel <span class="kw">as </span>usize, TrapMode::Direct);
+        stvec::write(__trap_from_kernel <span class="kw">as </span>usize, TrapMode::Direct);
     }
 }
 
