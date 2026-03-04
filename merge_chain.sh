@@ -144,7 +144,7 @@ case "$COMMAND" in
             echo "No interrupted state found, cannot continue."
             exit 1
         fi
-        read START_BRANCH END_BRANCH ORIGIN_MSG NEXT_BRANCH < "$STATE_FILE"
+        { read -r START_BRANCH; read -r END_BRANCH; read -r NEXT_BRANCH; read -r ORIGIN_MSG; } < "$STATE_FILE"
         echo "Continuing interrupted merge from ch$NEXT_BRANCH..."
         ;;
 
@@ -160,7 +160,7 @@ case "$COMMAND" in
 
     status)
         if [[ -f "$STATE_FILE" ]]; then
-            read START_BRANCH END_BRANCH ORIGIN_MSG NEXT_BRANCH < "$STATE_FILE"
+            { read -r START_BRANCH; read -r END_BRANCH; read -r NEXT_BRANCH; read -r ORIGIN_MSG; } < "$STATE_FILE"
             echo "Merge status: In progress"
             echo "Start branch: ch${START_BRANCH}"
             echo "End branch: ch${END_BRANCH}"
@@ -313,14 +313,14 @@ for ((i=NEXT_BRANCH; i<=END_BRANCH; i++)); do
     # Check if target branch exists
     if ! git show-ref --verify --quiet refs/heads/${CUR_BRANCH}; then
         echo "Error: Branch ${CUR_BRANCH} does not exist"
-        echo "$START_BRANCH $END_BRANCH \"$ORIGIN_MSG\" $i" > "$STATE_FILE"
+        printf '%s\n' "$START_BRANCH" "$END_BRANCH" "$i" "$ORIGIN_MSG" > "$STATE_FILE"
         exit 1
     fi
     
     echo "Switching to branch ${CUR_BRANCH}..."
     if ! git checkout "${CUR_BRANCH}"; then
         echo "Error: Cannot switch to branch ${CUR_BRANCH}"
-        echo "$START_BRANCH $END_BRANCH \"$ORIGIN_MSG\" $i" > "$STATE_FILE"
+        printf '%s\n' "$START_BRANCH" "$END_BRANCH" "$i" "$ORIGIN_MSG" > "$STATE_FILE"
         exit 1
     fi
 
@@ -336,7 +336,7 @@ for ((i=NEXT_BRANCH; i<=END_BRANCH; i++)); do
         echo ""
         echo "Or run '$0 abort' to abort the merge"
         echo "Or run '$0 status' to check current status"
-        echo "$START_BRANCH $END_BRANCH \"$ORIGIN_MSG\" $i" > "$STATE_FILE"
+        printf '%s\n' "$START_BRANCH" "$END_BRANCH" "$i" "$ORIGIN_MSG" > "$STATE_FILE"
         exit 1
     fi
     
