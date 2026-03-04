@@ -133,6 +133,10 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Trap handling functionality
 //!
 //! For rCore, we have a single trap entry point, namely `__alltraps`. At
@@ -170,8 +174,11 @@
 }
 
 <span class="kw">fn </span>set_kernel_trap_entry() {
+    <span class="kw">extern </span><span class="string">"C" </span>{
+        <span class="kw">fn </span>__trap_from_kernel();
+    }
     <span class="kw">unsafe </span>{
-        stvec::write(trap_from_kernel <span class="kw">as </span>usize, TrapMode::Direct);
+        stvec::write(__trap_from_kernel <span class="kw">as </span>usize, TrapMode::Direct);
     }
 }
 
@@ -195,6 +202,7 @@
     <span class="kw">let </span>cx = current_trap_cx();
     <span class="kw">let </span>scause = scause::read(); <span class="comment">// get trap cause
     </span><span class="kw">let </span>stval = stval::read(); <span class="comment">// get extra value
+
     // trace!("into {:?}", scause.cause());
     </span><span class="kw">match </span>scause.cause() {
         Trap::Exception(Exception::UserEnvCall) =&gt; {
