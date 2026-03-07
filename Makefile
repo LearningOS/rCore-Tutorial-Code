@@ -31,6 +31,28 @@ docker:
 build_docker:
 	docker build -t ${DOCKER_NAME} .
 
+attach_docker:
+	@if docker ps -a --filter "name=^/${CONTAINER_NAME}$$" --format "{{.Names}}" | grep -q "${CONTAINER_NAME}"; then \
+		if ! docker ps --filter "name=^/${CONTAINER_NAME}$$" --format "{{.Names}}" | grep -q "${CONTAINER_NAME}"; then \
+			docker start ${CONTAINER_NAME}; \
+		fi; \
+		docker exec -it ${CONTAINER_NAME} bash; \
+	else \
+		echo "❌ no existing container is found: ${CONTAINER_NAME}，please run 'make docker' to create container"; \
+	fi
+
+rebuild_docker:
+	@echo "🗑️ delete existing container ${CONTAINER_NAME}..."; \
+	docker rm -f ${CONTAINER_NAME} 2>/dev/null; \
+	echo "🚀 start creating container..."; \
+	docker run --network host -it -d \
+		--name ${CONTAINER_NAME} \
+		-v ${CURDIR}:/mnt \
+		-w /mnt \
+		${DOCKER_NAME} \
+		bash; \
+	docker exec -it ${CONTAINER_NAME} bash;
+
 fmt:
 	cd easy-fs; cargo fmt; cd ../easy-fs-fuse cargo fmt; cd ../os ; cargo fmt; cd ../user; cargo fmt; cd ..
 
