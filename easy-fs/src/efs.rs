@@ -29,7 +29,12 @@ impl EasyFileSystem {
             ((inode_num * core::mem::size_of::<DiskInode>() + BLOCK_SZ - 1) / BLOCK_SZ) as u32;
         let inode_total_blocks = inode_bitmap_blocks + inode_area_blocks;
         let data_total_blocks = total_blocks - 1 - inode_total_blocks;
-        let data_bitmap_blocks = (data_total_blocks + 4096) / 4097;
+        let data_bitmap_blocks = data_total_blocks / 4097;
+        assert!(
+            data_bitmap_blocks >= 1,
+            "Not enough blocks for data bitmap! data_total_blocks={}",
+            data_total_blocks
+        );
         let data_area_blocks = data_total_blocks - data_bitmap_blocks;
         let data_bitmap = Bitmap::new(
             (1 + inode_bitmap_blocks + inode_area_blocks) as usize,
