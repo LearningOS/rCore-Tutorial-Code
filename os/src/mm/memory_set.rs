@@ -35,8 +35,8 @@ lazy_static! {
 }
 /// address space
 pub struct MemorySet {
-    page_table: PageTable,
-    areas: Vec<MapArea>,
+    pub page_table: PageTable,
+    pub areas: Vec<MapArea>,
 }
 
 impl MemorySet {
@@ -262,10 +262,18 @@ impl MemorySet {
             false
         }
     }
+
+    pub fn unmap_framed_area(&mut self, start_va: VirtAddr, end_va: VirtAddr) {
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+        for vpn in VPNRange::new(start_vpn, end_vpn) {
+            self.page_table.unmap(vpn);
+        }
+    }
 }
 /// map area structure, controls a contiguous piece of virtual memory
 pub struct MapArea {
-    vpn_range: VPNRange,
+    pub vpn_range: VPNRange,
     data_frames: BTreeMap<VirtPageNum, FrameTracker>,
     map_type: MapType,
     map_perm: MapPermission,
