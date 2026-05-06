@@ -1,10 +1,13 @@
 //! Types related to task management
 use super::TaskContext;
 use crate::config::TRAP_CONTEXT_BASE;
+use crate::config::MAX_SYSCALL_NUM;
 use crate::mm::{
     kernel_stack_position, MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE,
 };
+use crate::mm::address::StepByOne;
 use crate::trap::{trap_handler, TrapContext};
+use crate::config::PAGE_SIZE;
 
 /// The task control block (TCB) of a task.
 pub struct TaskControlBlock {
@@ -28,6 +31,8 @@ pub struct TaskControlBlock {
 
     /// Program break
     pub program_brk: usize,
+
+    pub syscall_count: [usize; MAX_SYSCALL_NUM],
 }
 
 impl TaskControlBlock {
@@ -63,6 +68,7 @@ impl TaskControlBlock {
             base_size: user_sp,
             heap_bottom: user_sp,
             program_brk: user_sp,
+            syscall_count: [0; MAX_SYSCALL_NUM],
         };
         // prepare TrapContext in user space
         let trap_cx = task_control_block.get_trap_cx();
@@ -95,6 +101,71 @@ impl TaskControlBlock {
         } else {
             None
         }
+    }
+    pub fn increment_syscall_count(&mut self, num: usize) {
+        if num < MAX_SYSCALL_NUM {
+            self.syscall_count[num] += 1;
+        }
+    }
+
+    pub fn get_syscall_count(&self, num: usize) -> usize {
+        if num < MAX_SYSCALL_NUM {
+            self.syscall_count[num]
+        } else {
+            0
+        }
+    }
+    pub fn mmap(&mut self, start: usize, len: usize, prot: usize) -> isize {
+      if start % PAGE_SIZE != 0 { return -1; }
+      if prot & !0x7 != 0 { return -1; }
+      if prot & 0x7 == 0 { return -1; }
+      let mut perm = MapPermission::U;
+      if prot & 0x1 != 0 { perm |= MapPermission::R; }
+      if prot & 0x2 != 0 { perm |= MapPermission::W; }
+      if prot & 0x4 != 0 { perm |= MapPermission::X; }
+      let len = if len == 0 { 0 } else { (len - 1) / PAGE_SIZE * PAGE_SIZE + PAGE_SIZE };
+      if len == 0 { return 0; }
+      let start_vpn = VirtAddr::from(start).floor();
+      let end_vpn = VirtAddr::from(start + len).ceil();
+      let mut cur = start_vpn;
+      while cur < end_vpn {
+          if let Some(pte) = self.memory_set.translate(cur) {
+              if pte.is_valid() { return -1; }
+          }
+          cur.step();
+      }
+      self.memory_set.insert_framed_area(start.into(), (start + len).into(), perm);
+      0
+    }
+
+    pub fn munmap(&mut self, start: usize, len: usize) -> isize {
+        if start % PAGE_SIZE != 0 { return -1; }
+        let len = if len == 0 { 0 } else { (len - 1) / PAGE_SIZE * PAGE_SIZE + PAGE_SIZE };
+        if len == 0 { return 0; }
+        let start_vpn = VirtAddr::from(start).floor();
+        let end_vpn = VirtAddr::from(start + len).ceil();
+        // 检查全部已映射
+        let mut cur = start_vpn;
+        while cur < end_vpn {
+            match self.memory_set.translate(cur) {
+                Some(pte) if pte.is_valid() => {}
+                _ => { return -1; }
+            }
+            cur.step();
+        }
+        self.memory_set.unmap_framed_area(start.into(), (start + len).into());
+        let mut cur = start_vpn;
+        while cur < end_vpn {
+            self.memory_set.page_table.unmap(cur);
+            for area in &mut self.memory_set.areas {
+                if area.vpn_range.get_start() <= cur && cur < area.vpn_range.get_end() {
+                    area.unmap_one(&mut self.memory_set.page_table, cur);
+                    break;
+                }
+            }
+            cur.step();
+        }
+        0
     }
 }
 
